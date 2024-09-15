@@ -21,3 +21,6 @@ mongoose.connect(mongoURI, { useNewUrlParser: true, useUnifiedTopology: true })
 
 app.use(express.json());
 
+const recordRoutes = require('./routes/recordRoutes');
+app.use('/api', recordRoutes);
+
