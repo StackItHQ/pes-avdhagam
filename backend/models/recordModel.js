@@ -1,10 +1,14 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const recordSchema = new mongoose.Schema({
+    sheetName: String,
     row: Number,
     column: Number,
-    value: String,
-    timestamp: Date,
+    oldValue: String,
+    newValue: String,
+    timestamp: { type: Date, default: Date.now }
 });
 
-module.exports = mongoose.model('Record', recordSchema);
+const Record = mongoose.model('Record', recordSchema);
+
+export default Record;

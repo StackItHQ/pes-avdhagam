@@ -1,16 +1,22 @@
+import 'dotenv/config';
+import { connect } from 'mongoose';
+import express from 'express';
+import cors from 'cors';
+import recordRoutes from './routes/recordRoutes.js';
 
-require('dotenv').config();
-const mongoose = require('mongoose');
-const express = require('express');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+app.use(cors({
+    origin: '*'
+}));
+app.use(express.json());
+
 const mongoURI = process.env.MONGO_URI.replace('${DB_PASSWORD}', process.env.DB_PASSWORD);
 
-mongoose.connect(mongoURI, { useNewUrlParser: true, useUnifiedTopology: true })
+connect(mongoURI, { useNewUrlParser: true, useUnifiedTopology: true })
     .then(() => {
         console.log('Connected to MongoDB successfully');
-
         app.listen(PORT, () => {
             console.log(`Server is running on port ${PORT}`);
         });
@@ -19,8 +25,4 @@ mongoose.connect(mongoURI, { useNewUrlParser: true, useUnifiedTopology: true })
         console.error('Error connecting to MongoDB:', err);
     });
 
-app.use(express.json());
-
-const recordRoutes = require('./routes/recordRoutes');
 app.use('/api', recordRoutes);
-
