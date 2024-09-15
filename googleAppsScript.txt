@@ -1,40 +1,30 @@
 function onEdit(e) {
   if (!e || !e.source || !e.range) {
-    console.error('Event object is missing properties.');
+    Logger.log('Event object is missing properties.');
     return;
   }
 
-  // Get the active spreadsheet
   var spreadsheet = e.source;
-  
-  // Get the edited cell
   var range = e.range;
-  
-  // Get information about the edit
   var sheetName = range.getSheet().getName();
   var row = range.getRow();
   var column = range.getColumn();
-  var oldValue = e.oldValue || '(empty)';
+  var oldValue = e.oldValue || '';
   var newValue = range.getValue();
-  
-  // Create a log message with a unique timestamp
+
   var logMessage = Utilities.formatString(
     "Timestamp: %s - Edit made in sheet '%s' at cell %s%s. Old value: '%s', New value: '%s'",
-    new Date().toISOString(),  // Use ISO string for unique timestamp
+    new Date().toISOString(),
     sheetName,
     columnToLetter(column),
     row,
     oldValue,
     newValue
   );
-  
-  // Log the edit
-  console.log(logMessage);
-  
-  // Log to a separate sheet
+
+  Logger.log(logMessage);
   logToSheet(spreadsheet, logMessage);
-  
-  // Send data to your backend server
+
   var payload = {
     sheetName: sheetName,
     row: row,
@@ -42,23 +32,45 @@ function onEdit(e) {
     oldValue: oldValue,
     newValue: newValue
   };
-  
+
   var options = {
-    method: 'POST',
-    contentType: 'application/json',
-    payload: JSON.stringify(payload)
+    'contentType': 'application/json',
+    'payload': JSON.stringify(payload),
+    'muteHttpExceptions': true
   };
 
-  // Replace with your actual backend URL
-  var backendUrl = 'https://9b06-49-207-192-109.ngrok-free.app/api/update'; 
-  
+  var backendUrl = 'https://453e-49-207-192-109.ngrok-free.app/api/update';
+
+  // Determine whether to use POST or PUT
+  if (oldValue === '') {
+    options.method = 'post';
+  } else {
+    options.method = 'put';
+  }
+
   try {
     var response = UrlFetchApp.fetch(backendUrl, options);
-    Logger.log('Response from backend: ' + response.getContentText());
+    var responseCode = response.getResponseCode();
+    var responseBody = response.getContentText();
+    
+    Logger.log('Request Method: ' + options.method);
+    Logger.log('Response Code: ' + responseCode);
+    Logger.log('Response Body: ' + responseBody);
+    
+    if (responseCode === 200 || responseCode === 201) {
+      Logger.log('Successfully sent to backend.');
+    } else {
+      Logger.log('Failed to send to backend. Status code: ' + responseCode);
+    }
   } catch (error) {
-    console.error('Error sending data to backend: ' + error.message);
+    Logger.log('Error sending data to backend: ' + error.toString());
+    if (error.message) {
+      Logger.log('Error message: ' + error.message);
+    }
   }
 }
+
+// Helper functions (columnToLetter and logToSheet) remain the same
 
 // Helper function to convert column number to letter
 function columnToLetter(column) {
