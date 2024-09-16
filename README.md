@@ -84,4 +84,24 @@ Public Access with ngrok: Utilizes ngrok to expose the local server to the inter
 * Conflict Handling: Timestamp-based logic to resolve data conflicts.
 * Ngrok: For exposing the local server to the internet and facilitating external access during development.
 
+
+### 1. Spreadsheet Integration
+
+Real-Time Edit Tracking:
+
+The script utilizes the onEdit trigger to monitor any changes made within the Google Sheets document.
+It records each edit with comprehensive details including the timestamp of the change, the sheet name, the specific cell location (both column and row), the old value of the cell, and the new value.
+
+### 2. Backend Synchronization
+
+HTTP Request Handling:
+
+Edits made to the spreadsheet are communicated to a backend server via HTTP requests. The method of the request (POST or PUT) is determined based on the nature of the edit:
+POST Request: Used when a cell’s old value is empty (i.e., a new entry or addition). This request creates a new record in the backend to reflect the addition.
+PUT Request: Used when a cell that previously had a value is updated. This request updates the existing record in the backend with the new value.
+DELETE Request: If a cell that previously contained a value is emptied, a DELETE request is sent to remove the record from the backend, ensuring the backend reflects the exact state of the spreadsheet.
+
+### 3. ngrok Integration
+ngrok is used to expose the local backend server to the internet. This is particularly useful for testing and development purposes, allowing the Google Sheets script to send HTTP requests to a locally running server even if it's not publicly accessible.
+
 link to demo: https://www.loom.com/share/1bf1170248a24732b52bd8323579dcbd?sid=4138226e-57d4-4b9f-8db8-adb9311f3f7b
