@@ -36,6 +36,26 @@ function logRequestDetails(req) {
     console.log(`Received ${req.method} request to ${req.path}`);
     console.log('Request body:', JSON.stringify(req.body, null, 2));
 }
+
+async function deleteFromGoogleSheet(sheetName, row, column) {
+    const columnLetter = numberToColumnLetter(column);
+    const range = `${sheetName}!${columnLetter}${row}`;
+    try {
+        await sheets.spreadsheets.values.update({
+            spreadsheetId: SPREADSHEET_ID,
+            range,
+            valueInputOption: 'RAW',
+            resource: {
+                values: [['']]
+            }
+        });
+        console.log('Deleted from Google Sheet successfully');
+    } catch (error) {
+        console.error('Error deleting from Google Sheet:', error);
+        throw error;
+    }
+}
+
 async function updateGoogleSheet(sheetName, row, columnNumber, value) {
     const columnLetter = numberToColumnLetter(columnNumber);
     const range = `${sheetName}!${columnLetter}${row}`;
@@ -68,6 +88,40 @@ async function deleteMongoRecord(sheetName, row, columnNumber) {
     }
 }
 
+async function resolveConflict(sheetName, row, column, newValue) {
+    const existingRecord = await Record.findOne({ sheetName, row, column }).sort({ timestamp: -1 });
+
+    if (existingRecord) {
+        const existingValue = existingRecord.newValue;
+
+        if (existingValue !== newValue) {
+            console.log('Conflict detected: existing value differs from new value');
+
+            if (new Date() > new Date(existingRecord.timestamp)) {
+                await Record.updateOne(
+                    { sheetName, row, column },
+                    { $set: { oldValue: existingRecord.newValue, newValue, timestamp: new Date() } }
+                );
+                console.log('Conflict resolved: MongoDB updated with the latest value');
+            } else {
+                await updateGoogleSheet(sheetName, row, column, existingValue);
+                console.log('Conflict resolved: Google Sheet reverted to the existing value');
+            }
+        }
+    } else {
+        const newRecord = new Record({
+            sheetName,
+            row,
+            column,
+            oldValue: '(empty)',
+            newValue,
+        });
+
+        await newRecord.save();
+        console.log('New record created in MongoDB');
+    }
+}
+
 router.post('/update', async (req, res) => {
     logRequestDetails(req);
 
@@ -75,21 +129,12 @@ router.post('/update', async (req, res) => {
         const { sheetName, row, column, newValue } = req.body;
         if (!newValue) {
             await deleteMongoRecord(sheetName, row, column);
-            console.log('Record deleted from MongoDB due to empty newValue');
+            await deleteFromGoogleSheet(sheetName, row, column);
+            console.log('Record deleted from MongoDB and Google Sheet due to empty newValue');
         } else {
-            const newRecord = new Record({
-                sheetName,
-                row,
-                column,
-                oldValue: '(empty)',
-                newValue
-            });
-
-            await newRecord.save();
-            console.log('New record saved to MongoDB successfully');
+            await resolveConflict(sheetName, row, column, newValue);
+            await updateGoogleSheet(sheetName, row, column, newValue);
         }
-
-        await updateGoogleSheet(sheetName, row, column, newValue);
 
         res.status(201).json({ message: 'Data processed successfully!' });
     } catch (error) {
@@ -103,16 +148,17 @@ router.put('/update', async (req, res) => {
 
     try {
         const { sheetName, row, column, oldValue, newValue } = req.body;
-        const updatedRecord = await Record.findOneAndUpdate(
+        await Record.findOneAndUpdate(
             { sheetName, row, column },
-            { $set: { oldValue, newValue } },
+            { $set: { oldValue, newValue, timestamp: new Date() } },
             { new: true, upsert: true }
         );
 
         console.log('Record updated in MongoDB successfully');
         if (!newValue) {
             await deleteMongoRecord(sheetName, row, column);
-            console.log('Record deleted from MongoDB due to empty newValue');
+            await deleteFromGoogleSheet(sheetName, row, column);
+            console.log('Record deleted from MongoDB and Google Sheet due to empty newValue');
         } else {
             await updateGoogleSheet(sheetName, row, column, newValue);
         }
@@ -121,6 +167,24 @@ router.put('/update', async (req, res) => {
     } catch (error) {
         console.error('Error processing PUT request:', error);
         res.status(500).json({ message: 'Failed to update the data in MongoDB', error: error.message });
+    }
+});
+
+router.delete('/update', async (req, res) => {
+    logRequestDetails(req);
+
+    try {
+        const { sheetName, row, column } = req.body;
+
+        await Record.deleteOne({ sheetName, row, column });
+        console.log('Record deleted from MongoDB successfully');
+
+        await deleteFromGoogleSheet(sheetName, row, column);
+
+        res.status(200).json({ message: 'Record deleted from MongoDB and Google Sheet successfully!' });
+    } catch (error) {
+        console.error('Error processing DELETE request:', error);
+        res.status(500).json({ message: 'Failed to delete the data', error: error.message });
     }
 });
 
