@@ -60,3 +60,28 @@ All the best ✨.
 
 ## Developer's Section
 *Add your video here, and your approach to the problem (optional). Leave some comments for us here if you want, we will be reading this :)*
+
+- [x] My code's working just fine! 🥳
+- [x] I have recorded a video showing it working and embedded it in the README ▶️
+- [x] I have tested all the normal working cases 😎
+- [x] I added my very planned-out approach to the problem at the end of this README 📜
+
+### Overview
+This project facilitates real-time synchronization between Google Sheets and MongoDB. 
+ 
+#### Features
+
+Real-Time Data Synchronization: Directly updates both Google Sheets and MongoDB through API requests, ensuring that changes are instantly propagated to both systems.
+
+Conflict Resolution: Handles data conflicts by comparing timestamps and resolving discrepancies, maintaining data integrity and consistency.
+
+Public Access with ngrok: Utilizes ngrok to expose the local server to the internet, enabling easy testing and integration with external services.
+
+#### Technologies Used
+* Backend: Node.js with Express for handling API requests.
+* Database: MongoDB for storing data records.
+* Spreadsheet API: Google Sheets API for managing spreadsheet data.
+* Conflict Handling: Timestamp-based logic to resolve data conflicts.
+* Ngrok: For exposing the local server to the internet and facilitating external access during development.
+
+
