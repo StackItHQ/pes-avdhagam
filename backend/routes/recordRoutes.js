@@ -2,7 +2,6 @@ import express from 'express';
 import Record from '../models/recordModel.js';
 import { google } from 'googleapis';
 import path from 'path';
-import fs from 'fs';
 import { fileURLToPath } from 'url';
 
 function numberToColumnLetter(number) {
@@ -31,17 +30,17 @@ const auth = new google.auth.GoogleAuth({
 });
 const sheets = google.sheets({ version: 'v4', auth });
 
-
 const SPREADSHEET_ID = '1IzVSC9mGrvHpeqmbleiLcEXnRmbPQ9t-Dc9fxQLLiBw';
 
 function logRequestDetails(req) {
     console.log(`Received ${req.method} request to ${req.path}`);
     console.log('Request body:', JSON.stringify(req.body, null, 2));
 }
-
 async function updateGoogleSheet(sheetName, row, columnNumber, value) {
     const columnLetter = numberToColumnLetter(columnNumber);
     const range = `${sheetName}!${columnLetter}${row}`;
+
+    console.log(`Updating Google Sheet with range: ${range} and value: ${value}`);
 
     try {
         await sheets.spreadsheets.values.update({
@@ -59,39 +58,51 @@ async function updateGoogleSheet(sheetName, row, columnNumber, value) {
     }
 }
 
+async function deleteMongoRecord(sheetName, row, columnNumber) {
+    try {
+        await Record.deleteOne({ sheetName, row, column: columnNumber });
+        console.log('MongoDB record deleted successfully');
+    } catch (error) {
+        console.error('Error deleting MongoDB record:', error);
+        throw error;
+    }
+}
+
 router.post('/update', async (req, res) => {
     logRequestDetails(req);
 
     try {
         const { sheetName, row, column, newValue } = req.body;
+        if (!newValue) {
+            await deleteMongoRecord(sheetName, row, column);
+            console.log('Record deleted from MongoDB due to empty newValue');
+        } else {
+            const newRecord = new Record({
+                sheetName,
+                row,
+                column,
+                oldValue: '(empty)',
+                newValue
+            });
 
-        const newRecord = new Record({
-            sheetName,
-            row,
-            column,
-            oldValue: '(empty)',
-            newValue
-        });
-
-        await newRecord.save();
-        console.log('New record saved to MongoDB successfully');
+            await newRecord.save();
+            console.log('New record saved to MongoDB successfully');
+        }
 
         await updateGoogleSheet(sheetName, row, column, newValue);
 
-        res.status(201).json({ message: 'New entry logged and saved to MongoDB successfully!' });
+        res.status(201).json({ message: 'Data processed successfully!' });
     } catch (error) {
         console.error('Error processing POST request:', error);
         res.status(500).json({ message: 'Failed to save the new data to MongoDB', error: error.message });
     }
 });
 
-
 router.put('/update', async (req, res) => {
     logRequestDetails(req);
 
     try {
         const { sheetName, row, column, oldValue, newValue } = req.body;
-
         const updatedRecord = await Record.findOneAndUpdate(
             { sheetName, row, column },
             { $set: { oldValue, newValue } },
@@ -99,8 +110,12 @@ router.put('/update', async (req, res) => {
         );
 
         console.log('Record updated in MongoDB successfully');
-
-        await updateGoogleSheet(sheetName, row, column, newValue);
+        if (!newValue) {
+            await deleteMongoRecord(sheetName, row, column);
+            console.log('Record deleted from MongoDB due to empty newValue');
+        } else {
+            await updateGoogleSheet(sheetName, row, column, newValue);
+        }
 
         res.status(200).json({ message: 'Edit logged and updated in MongoDB successfully!' });
     } catch (error) {
