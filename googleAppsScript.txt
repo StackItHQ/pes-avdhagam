@@ -11,10 +11,11 @@ function onEdit(e) {
   var column = range.getColumn();
   var oldValue = e.oldValue || '';
   var newValue = range.getValue();
+  var timestamp = new Date().toISOString(); // Current timestamp in ISO format
 
   var logMessage = Utilities.formatString(
     "Timestamp: %s - Edit made in sheet '%s' at cell %s%s. Old value: '%s', New value: '%s'",
-    new Date().toISOString(),
+    timestamp,
     sheetName,
     columnToLetter(column),
     row,
@@ -23,14 +24,15 @@ function onEdit(e) {
   );
 
   Logger.log(logMessage);
-  logToSheet(spreadsheet, logMessage);
+  logToSheet(spreadsheet, timestamp, logMessage);
 
   var payload = {
     sheetName: sheetName,
     row: row,
     column: column,
     oldValue: oldValue,
-    newValue: newValue
+    newValue: newValue,
+    timestamp: timestamp // Include timestamp in payload
   };
 
   var options = {
@@ -70,8 +72,6 @@ function onEdit(e) {
   }
 }
 
-// Helper functions (columnToLetter and logToSheet) remain the same
-
 // Helper function to convert column number to letter
 function columnToLetter(column) {
   var temp, letter = '';
@@ -84,7 +84,7 @@ function columnToLetter(column) {
 }
 
 // Function to log messages to a separate sheet
-function logToSheet(spreadsheet, message) {
+function logToSheet(spreadsheet, timestamp, message) {
   var logSheet = spreadsheet.getSheetByName("Edit Logs");
   
   // Create the log sheet if it doesn't exist
@@ -94,11 +94,6 @@ function logToSheet(spreadsheet, message) {
   }
   
   // Append the new log entry
-  logSheet.appendRow([new Date(), message]);
+  logSheet.appendRow([timestamp, message]);
   Logger.log(message);
 }
-
-
-
-
-
